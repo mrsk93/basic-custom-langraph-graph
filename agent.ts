@@ -5,12 +5,26 @@ import { ChatGroq } from "@langchain/groq";
 import { MemorySaver, MessagesAnnotation, StateGraph } from "@langchain/langgraph";
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { printGraph } from "./util";
+import { tool } from "@langchain/core/tools";
+import { z } from 'zod';
 
 
 const checkpointer = new MemorySaver();
 
+const getGoogleCalendarMeetings = tool(({date}:{date:string}) => {
+  console.log('Searching for meetings for', date);
+  return 'Meeting with Mr.SK at 4pm for today \n Meeting with Ms.RK at 5pm for tomorrow';
+}, {
+  name: 'getGoogleCalendarMeetings',
+  description: 'Get a list of user meetings in google Calendar',
+  schema: z.object({
+    date: z.string().optional().describe("The date for which the meetings are asked for"),
+  })
+})                                                                                       
+
+
 // Define the tools for the agent to use
-const tools = [new TavilySearch({ maxResults: 3 })];
+const tools = [new TavilySearch({ maxResults: 3, name: 'TavilySearch' }), getGoogleCalendarMeetings];
 const toolNode = new ToolNode(tools);
 
 // Create a model and give it access to the tools
@@ -25,6 +39,12 @@ function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
 
   // If the LLM makes a tool call, then we route to the "tools" node
   if (lastMessage.tool_calls?.length) {
+    if(lastMessage.tool_calls[0]?.name === 'getGoogleCalendarMeetings'){
+      console.log('Looking up meetings...');
+    }
+    if(lastMessage.tool_calls[0]?.name === 'TavilySearch'){
+      console.log('Searching the web...');
+    }
     return "tools";
   }
   // Otherwise, we stop (reply to the user) using the special "__end__" node

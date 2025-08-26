@@ -1,9 +1,13 @@
+import readline from "node:readline/promises";
 import { TavilySearch } from "@langchain/tavily";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { ChatGroq } from "@langchain/groq";
-import { MessagesAnnotation, StateGraph } from "@langchain/langgraph";
+import { MemorySaver, MessagesAnnotation, StateGraph } from "@langchain/langgraph";
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { printGraph } from "./util";
+
+
+const checkpointer = new MemorySaver();
 
 // Define the tools for the agent to use
 const tools = [new TavilySearch({ maxResults: 3 })];
@@ -11,8 +15,8 @@ const toolNode = new ToolNode(tools);
 
 // Create a model and give it access to the tools
 const model = new ChatGroq({
-    model: "openai/gpt-oss-120b",
-    temperature: 0,
+  model: "openai/gpt-oss-120b",
+  temperature: 0,
 }).bindTools(tools);
 
 // Define the function that determines whether to continue or not
@@ -42,13 +46,36 @@ const workflow = new StateGraph(MessagesAnnotation)
   .addNode("tools", toolNode)
   .addEdge("tools", "llm")
   .addConditionalEdges("llm", shouldContinue);
-  
+
 // Finally, we compile it into a LangChain Runnable.
-const app = workflow.compile();
+const app = workflow.compile({ checkpointer });
 //we print our custom graph
 await printGraph(app, "./graphState.png");
-// Use the agent
-const finalState = await app.invoke({
-  messages: [new HumanMessage("what is the temperature in mumbai?")],
-});
-console.log(finalState.messages[finalState.messages.length - 1]?.content);
+
+const main = async () => {
+  let config = { configurable: { thread_id: "1" } };
+
+  //Take user input
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+  while (true) {
+    const userMessage = await rl.question("User: ");
+    if (userMessage.toLowerCase() === 'bye' || userMessage.toLowerCase() === 'exit') {
+      break;
+    }
+
+    // Use the agent
+    const finalState = await app.invoke({
+      messages: [new HumanMessage(userMessage)],
+      },
+     config
+    );
+
+    console.log(`Assistant:${finalState.messages[finalState.messages.length - 1]?.content}`);
+  }
+
+  rl.close();
+
+}
+
+await main();

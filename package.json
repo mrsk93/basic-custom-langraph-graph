@@ -1,6 +1,6 @@
 {
-  "name": "basic-custom-langraph-graph",
-  "module": "index.ts",
+  "name": "basic-custom-langgraph-graph",
+  "module": "agent.ts",
   "type": "module",
   "private": true,
   "devDependencies": {

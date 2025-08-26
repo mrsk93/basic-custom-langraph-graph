@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 
 
-export const getGraphPng = async (app: any, filePath: string) => {
+export const printGraph = async (app: any, filePath: string) => {
     //Visualize the agent workflow using Mermaid
     //Graphical representation of agent workflow
     const drawableGraphGraphState = await app.getGraphAsync();
